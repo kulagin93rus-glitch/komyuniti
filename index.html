@@ -130,9 +130,12 @@ const itemBtn = (it,idx) => { const nm = it.name.startsWith('ДТ-Л-К5 ') ? it
 const rows2 = arr => { const out=[]; for(let i=0;i<arr.length;i+=2) out.push(arr.slice(i,i+2)); return out; };
 const NAV = (extra)=>[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}].concat(extra||[]);
 const VIEWS = {
-  home: ()=>({crumb:'<b>Главная</b>', html:'<b>Цены актуальны на '+DATE_H+'</b> <span style="color:var(--muted);font-size:13px">· обновляем каждое утро</span><br>ДГКС Ильского НПЗ — <b>'+ITEMS.find(i=>i.name==='ДГКС').kg+' ₽/кг</b>, отгрузка с завода круглосуточно.<br>Чем помочь?',
+  home: ()=>{ const mn=re=>{ const a=ITEMS.filter(i=>re.test(i.name)); return a.length?Math.min(...a.map(i=>i.kg)):null; }; const cnt=re=>ITEMS.filter(i=>re.test(i.name)).length;
+    const dg=ITEMS.find(i=>i.name==='ДГКС'); const dt=mn(/^ДТ/), ai=mn(/^АИ/);
+    return {crumb:'<b>Главная</b> · цены на '+DATE_H+' · самовывоз · с НДС',
+    html:'<table class="calc" style="margin-top:0"><tr><td><b>ДГКС</b> <span style="color:var(--muted)">завод, круглосуточно</span></td><td>'+(dg?fp(dg.kg):'—')+' ₽/кг</td></tr><tr><td><b>ДТ ЕВРО</b> <span style="color:var(--muted)">'+cnt(/^ДТ/)+' пунктов, Юг и Черноземье</span></td><td>от '+(dt!=null?fp(dt):'—')+' ₽/кг</td></tr><tr><td><b>Бензины</b> <span style="color:var(--muted)">завод и нефтебазы</span></td><td>от '+(ai!=null?fp(ai):'—')+' ₽/кг</td></tr></table><div style="margin-top:8px">Чем помочь?</div>',
     hint:'Позвонить: +7 918 966 66 69 · Данил',
-    kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Написать менеджеру',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}),
+    kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Написать менеджеру',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}; },
   calcProd: ()=>{ const fams=FAM_ORDER.filter(f=>ITEMS.some(i=>FAM(i)===f)); const btns=fams.map(f=>({t:f+(ITEMS.filter(i=>FAM(i)===f).length>1?' · '+ITEMS.filter(i=>FAM(i)===f).length:''),a:'fam',v:f}));
     return {crumb:'Главная › <b>Расчёт стоимости</b> · шаг 1 из 3', html:'Что считаем? Все позиции — из действующего прайса на '+DATE_H+'.', kb:rows2(btns).concat([NAV()])}; },
   calcItem: ()=>{ const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===state.fam); const south=arr.filter(([it])=>!isChern(it)), chern=arr.filter(([it])=>isChern(it));
@@ -150,7 +153,20 @@ const VIEWS = {
       '<table class="calc"><tr><td>'+fL(L)+' × '+fd(d)+' кг/л (ср. плотность'+(it.dens_guess?', уточнить':'')+')</td><td>'+fmt(kg)+' кг</td></tr><tr><td>'+fmt(kg)+' кг × '+it.kg+' ₽/кг</td><td>'+fmt(sum)+' ₽</td></tr><tr><td>то же в литрах</td><td>≈ '+perL.toFixed(2).replace('.',',')+' ₽/л</td></tr></table>'+extra,
       hint:'Это предварительный расчёт по цене на '+DATE_H+' (самовывоз). Счёт выставляю по литрам вашей заявки и средней плотности; окончательная сумма — по фактической массе в накладной, разницу закрываем актом сверки.',
       hint2:(NPZ[state.prod]&&L>=60000)?'Объём от одной ЖД-цистерны (≈ 60 т). С '+NPZ[state.prod]+' возможна отгрузка ЖД: цена + ЖД-тариф до вашей станции.':null,
-      kb:[[{t:'✅ Оформить заявку',a:'write',p:1}],[{t:'Другой объём',a:'back',nav:1},{t:'Другой продукт',a:'calc',nav:1}],[{t:'🔔 Сообщать об изменении цены',a:'sub'}]].concat(NPZ[state.prod]?[[{t:'ЖД-цистернами — запрос',a:'zhd'}]]:[]).concat([[{t:'Главная',a:'home',nav:1}]])}; },
+      kb:[[{t:'✅ Оформить заявку',a:'order',p:1}],[{t:'Другой объём',a:'back',nav:1},{t:'Другой продукт',a:'calc',nav:1}],[{t:'🔔 Сообщать об изменении цены',a:'sub'}]].concat(NPZ[state.prod]?[[{t:'ЖД-цистернами — запрос',a:'zhd'}]]:[]).concat([[{t:'Главная',a:'home',nav:1}]])}; },
+  orderQ1: ()=>({crumb:'Главная › Расчёт › <b>Заявка</b> · шаг 1 из 3', html:'<b>'+state.order.calc+'</b><br>Вы уже работаете с КОМЬЮНИТИ по договору?',
+    hint:'Если договор есть — счёт выставлю сразу по реквизитам из него. Если нет — оформим договор и счёт одним заходом.',
+    kb:[[{t:'✅ Да, договор есть',a:'ordYes'}],[{t:'🆕 Нет, первая поставка',a:'ordNo'}],[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]]}),
+  orderInn: ()=>({crumb:'Главная › Расчёт › Заявка · <b>шаг 2 из 3</b>', html:'<b>ИНН вашей компании</b> — 10 или 12 цифр. По нему найду ваш договор и выставлю счёт.', hint:'Напишите ответ ниже. Передумали — любая кнопка ниже отменит ввод.', kb:[[{t:'◀ Назад',a:'order',nav:1},{t:'Главная',a:'home',nav:1}]]}),
+  orderContact: ()=>({crumb:'Главная › Расчёт › Заявка · <b>шаг 2 из 3</b>', html:'<b>Кто на связи по этой отгрузке?</b> Имя и телефон одной строкой, например: «Пётр, +7 918 000-00-00».', hint:'Позвоню только по этой заявке — согласовать дату и машину.', kb:[[{t:'◀ Назад',a:'order',nav:1},{t:'Главная',a:'home',nav:1}]]}),
+  orderWhen: ()=>({crumb:'Главная › Расчёт › Заявка · <b>шаг 3 из 3</b>', html:'<b>Когда нужна отгрузка?</b>', hint:'Заводы отгружают круглосуточно после оплаты; нефтебазы и ЛПДС — по согласованной дате.',
+    kb:[[{t:'Сегодня–завтра',a:'ordWhen',v:'сегодня–завтра'},{t:'На этой неделе',a:'ordWhen',v:'на этой неделе'}],[{t:'Позже, уточню',a:'ordWhen',v:'позже, уточнит'}],[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]]}),
+  orderConfirm: ()=>{ const o=state.order; return {crumb:'Главная › Расчёт › Заявка · <b>проверьте</b>', html:'<b>Заявка</b><br><b>'+esc(o.calc)+'</b><br>Предварительно <b>'+fmt(o.sum)+' ₽</b> с НДС ('+fmt(o.kg)+' кг)<br>Договор: '+(o.hasContract?'есть':'оформим')+(o.inn?' · ИНН '+esc(o.inn):'')+(o.contact?'<br>Контакт: '+esc(o.contact):'')+'<br>Отгрузка: '+esc(o.when),
+    hint:'Нажимая «Отправить», вы соглашаетесь на обработку указанных данных для подготовки договора и счёта. Счёт — по литрам и средней плотности, окончательная сумма — по массе в накладной.',
+    kb:[[{t:'📨 Отправить заявку',a:'ordSend',p:1}],[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]]}; },
+  orderDone: ()=>{ const o=state.order; return {crumb:'Главная › Расчёт › Заявка · <b>принята</b>', html:'<b>Заявка принята.</b> '+(o.hasContract?'Счёт на '+fmt(o.sum)+' ₽ подготовлю и пришлю сюда, в чат — в рабочее время обычно в течение часа (08:00–20:00 МСК), ночью — с утра.':'Подготовлю договор и счёт на '+fmt(o.sum)+' ₽ и пришлю сюда, в чат — в рабочее время обычно в течение часа (08:00–20:00 МСК), ночью — с утра.')+(o.hasContract?'':'<br><br>Чтобы ускорить — пришлите карточку предприятия любым удобным способом:'),
+    hint:'Если что-то изменится (объём, дата) — просто напишите здесь.',
+    kb:(o.hasContract?[]:[[{t:'📎 Прислать файлом',a:'reqfile'},{t:'✉️ На почту',a:'reqmail'}]]).concat([[{t:'💬 Написать менеджеру',a:'write'}],[{t:'Главная',a:'home',nav:1}]])}; },
   zhdProd: ()=>({crumb:'Главная › <b>ЖД-отгрузка</b> · шаг 1 из 3', html:'<b>Отгрузка ЖД-цистернами</b> — с Ильского НПЗ (ДГКС) и Славянского НПЗ (бензины К4). Цена = наша цена на день + ЖД-тариф до вашей станции; минимум — одна цистерна (≈ 60 т). Что отгружаем?',
     kb:[[{t:'ДГКС · Ильский',a:'zhdSt',v:'ДГКС'}],[{t:'АИ-92-К4',a:'zhdSt',v:'АИ-92-К4'},{t:'АИ-95-К4',a:'zhdSt',v:'АИ-95-К4'},{t:'АИ-98-К4',a:'zhdSt',v:'АИ-98-К4'}],NAV()]}),
   zhdSt: ()=>({crumb:'Главная › ЖД-отгрузка › <b>'+state.zhd.prod+'</b> · шаг 2 из 3', html:'Станция назначения? Напишите название и дорогу, например «Батайск, СКЖД». Если знаете код станции — тоже подойдёт.', hint:'Тариф РЖД считается до конкретной станции — поэтому спрашиваем её первой.', kb:[NAV()]}),
@@ -188,12 +204,12 @@ function render(view, push=true){
   if(!menuEl){ menuEl=add(html); menuEl.dataset.edits=0; }
   else { const n=(+menuEl.dataset.edits||0)+1; menuEl.dataset.edits=n; menuEl.innerHTML=html+'<div class="time"><span class="ed">изменено</span>'+now()+'</div>'; menuEl.scrollIntoView({behavior:'smooth',block:'end'}); }
   menuEl.dataset.view=view;
-  state.writing = (view==='write'||(view==='intent'&&['price','other'].includes(state.intent))) ? 'lead' : (view==='reqStep' ? 'req' : (view==='own' ? 'vol' : (view==='zhdSt' ? 'zhdSt' : false)));
+  state.writing = (view==='write'||(view==='intent'&&['price','other'].includes(state.intent))) ? 'lead' : (view==='reqStep' ? 'req' : (view==='own' ? 'vol' : (view==='zhdSt' ? 'zhdSt' : (view==='orderInn' ? 'ordInn' : (view==='orderContact' ? 'ordContact' : false)))));
 }
 function newMenu(view){ if(menuEl){ menuEl.classList.add('stale'); menuEl=null; } stack=[]; render(view,false); }
 function back(){ const prev=stack.pop()||'home'; render(prev,false); }
 function album(){
-  add('<div class="album"><img src="'+IMG.DGKS+'" data-z="DGKS"><img src="'+IMG.benzin+'" data-z="benzin"><img src="'+IMG.diesel+'" data-z="diesel"><img src="'+IMG.nb+'" data-z="nb"></div><b>Топливо оптом — цены на '+DATE_H+'.</b><br>Четыре карточки: ДГКС · бензины · дизель · нефтебазы. Нажмите любую — откроется крупно, дальше листайте. Всё остальное — кнопками в меню ниже.');
+  add('<div class="album" style="margin-bottom:-4px"><img src="'+IMG.DGKS+'" data-z="DGKS"><img src="'+IMG.benzin+'" data-z="benzin"><img src="'+IMG.diesel+'" data-z="diesel"><img src="'+IMG.nb+'" data-z="nb"></div>');
   logEv('показ альбома', KP);
   newMenu('home');
 }
@@ -225,6 +241,12 @@ function action(a, v, label){
   else if(a==='copymail'){ try{ navigator.clipboard.writeText('ooocommunity2019@gmail.com'); }catch(e){} sys('Адрес скопирован'); }
   else if(a==='reqmailok'){ api('reqmail', {}); add('Жду письмо. Как получу — подтвержу в чате и подготовлю договор.'+kb([[{t:'Главная',a:'home',nav:1}]])); }
   else if(a==='sub') render('sub');
+  else if(a==='order'){ const it=ITEMS[state.item]; if(!it||!state.vol){ render('calcProd'); return; } const kg=Math.round(state.vol*it.dens); state.order={calc:state.prod+' · '+shortBasis(it)+', '+fL(state.vol), sum:kg*it.kg, kg:kg, item:state.item, vol:state.vol, hasContract:null, inn:'', contact:'', when:''}; render('orderQ1'); }
+  else if(a==='ordYes'){ state.order.hasContract=true; render('orderInn'); }
+  else if(a==='ordNo'){ state.order.hasContract=false; render('orderContact'); }
+  else if(a==='ordWhen'){ state.order.when=v; render('orderConfirm'); }
+  else if(a==='ordSend'){ const o=state.order; render('orderDone'); api('order', {calc:o.calc, sum:o.sum, kg:o.kg, vol:o.vol, hasContract:!!o.hasContract, inn:o.inn||'', contact:o.contact||'', when:o.when||''}); logEv('заявка отправлена', o.calc+' · '+fmt(o.sum)+' ₽');
+    bossPush('<div class="from">ЗАЯВКА · @client_test · '+now()+'</div><b>'+esc(o.calc)+'</b> · предварительно '+fmt(o.sum)+' ₽ ('+fmt(o.kg)+' кг)<br>Договор: '+(o.hasContract?'есть':'НЕТ — оформить')+(o.inn?' · ИНН '+esc(o.inn):'')+(o.contact?' · контакт: '+esc(o.contact):'')+'<br>Отгрузка: '+esc(o.when)+'<div style="margin-top:6px;font-size:12px;color:var(--muted)">Клиенту обещан счёт в течение часа (08–20). Ответьте reply — доставлю в чат.</div>'); }
   else if(a==='zhd'){ state.zhd={}; render('zhdProd'); }
   else if(a==='zhdSt'){ state.zhd.prod=v; render('zhdSt'); }
   else if(a==='zhdReady'){ state.zhd.n=v; render('zhdReady'); }
@@ -257,6 +279,8 @@ function sendMsg(){ const i=document.getElementById('inp'); const t=i.value.trim
       if(u==='т'||u==='t'||u==='тн') L=n*1000/it.dens; else if(u==='кг'||u==='kg') L=n/it.dens; else L=n; }
     if(L>=500 && L<=100000){ state.vol=Math.round(L); render('result'); logEv('расчёт', state.prod+' '+fmt(state.vol)+' л'); }
     else add('Нужно число: литры (например 25000) или тонны (например 20 т). Диапазон 500–100 000 л.'+kb([[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]])); return; }
+  if(state.writing==='ordInn'){ if(!/^\d{10}(\d{2})?$/.test(t.replace(/\s/g,''))){ add('ИНН — это 10 или 12 цифр. Проверьте, пожалуйста.'+kb([[{t:'◀ Назад',a:'order',nav:1},{t:'Главная',a:'home',nav:1}]])); return; } state.order.inn=t.replace(/\s/g,''); render('orderWhen'); return; }
+  if(state.writing==='ordContact'){ if(t.length<5){ add('Напишите имя и телефон одной строкой, например «Пётр, +7 918 000-00-00».'+kb([[{t:'◀ Назад',a:'order',nav:1},{t:'Главная',a:'home',nav:1}]])); return; } state.order.contact=t; render('orderWhen'); return; }
   if(state.writing==='req'){ const k=state.reqK||0; if(k===0){ if(!/^\d{10}(\d{2})?$/.test(t.replace(/\s/g,''))){ add('ИНН — это 10 или 12 цифр. Проверьте, пожалуйста.'+kb([[{t:'◀ Назад',a:'intent',v:'req',nav:1},{t:'Главная',a:'home',nav:1}]])); return; } state.req.inn=t.replace(/\s/g,''); }
     else if(k===1){ state.req.mail=t; } else { state.req.contact=t; }
     if(k<2){ state.reqK=k+1; render('reqStep',false); return; }
