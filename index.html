@@ -236,11 +236,11 @@ function action(a, v, label){
   else if(a==='res'){ state.vol=+v; render('result'); logEv('расчёт', state.prod+' '+fmt(state.vol)+' л'); }
   else if(a==='own') render('own');
   else if(a==='write') render('write');
-  else if(a==='tochat'){ logEv('в чат к Данилу',''); api('tochat', {calc:(state.item!=null&&state.vol)?(state.prod+' · '+shortBasis(ITEMS[state.item])+', '+fL(state.vol)):''}); setTimeout(()=>{ tg && tg.close(); }, 250); }
+  else if(a==='tochat'){ logEv('в чат к Данилу',''); const pr=api('tochat', {calc:(state.item!=null&&state.vol)?(state.prod+' · '+shortBasis(ITEMS[state.item])+', '+fL(state.vol)):''}); let done=false; const fin=()=>{ if(!done){ done=true; closeApp(); } }; (pr&&pr.then?pr:Promise.resolve()).then(fin,fin); setTimeout(fin, 4000); }
   else if(a==='intent'){ state.intent=v; render('intent'); logEv('намерение', v); }
   else if(a==='reqstep'){ state.reqK=0; state.req={}; render('reqStep'); }
   else if(a==='reqfile'){ api('reqfile', {}); add('Файл удобнее отправить в чате: закройте это окно, нажмите <b>скрепку 📎</b> и выберите карточку предприятия (PDF, Word, фото). Я уже жду её там и подтвержу получение.'+kb([[{t:'📎 Перейти в чат и отправить файл',a:'closeapp',p:1}],[{t:'◀ Назад',a:'intent',v:'req',nav:1},{t:'Главная',a:'home',nav:1}]])); }
-  else if(a==='closeapp'){ tg && tg.close(); }
+  else if(a==='closeapp'){ closeApp(); }
   else if(a==='reqmail'){ add('Почта для документов: <b>ooocommunity2019@gmail.com</b><br>Тема письма: «Карточка предприятия — договор поставки».<div class="hint">Нажмите на адрес — скопируется. Когда отправите, нажмите «Письмо отправил(а)» — я буду ждать его на почте.</div>'+kb([[{t:'📋 Скопировать адрес',a:'copymail'}],[{t:'✅ Письмо отправил(а)',a:'reqmailok',p:1}],[{t:'◀ Назад',a:'intent',v:'req',nav:1},{t:'Главная',a:'home',nav:1}]])); }
   else if(a==='copymail'){ try{ navigator.clipboard.writeText('ooocommunity2019@gmail.com'); }catch(e){} sys('Адрес скопирован'); }
   else if(a==='reqmailok'){ api('reqmail', {}); add('Жду письмо. Как получу — подтвержу в чате и подготовлю договор.'+kb([[{t:'Главная',a:'home',nav:1}]])); }
@@ -307,12 +307,13 @@ const seen = new Set();
 function api(action, payload){
   try{
     const body = JSON.stringify({app:1, action:action, payload:payload||{}, initData: tg ? tg.initData : '', kp: KP});
-    fetch(API + (API.indexOf('?')>0?'&':'?') + 'app=1', {method:'POST', body: body}).then(r=>r.text()).then(t=>{
+    return fetch(API + (API.indexOf('?')>0?'&':'?') + 'app=1', {method:'POST', body: body, keepalive:true}).then(r=>r.text()).then(t=>{
       try{ const j=JSON.parse(t); if(j && j.msg && !seen.has(j.msg)){ seen.add(j.msg); } }catch(e){}
     }).catch(()=>{});
   }catch(e){}
 }
-document.getElementById('mClose').onclick=()=>{ tg ? tg.close() : history.back(); };
+function closeApp(){ if(!tg){ history.back(); return; } try{ tg.disableClosingConfirmation(); }catch(e){} tg.close(); }
+document.getElementById('mClose').onclick=closeApp;
 document.getElementById('status').textContent='цены на '+DATE_H;
 if(tg){ tg.ready(); tg.expand(); try{ tg.setHeaderColor('#17212B'); tg.setBackgroundColor('#0E1621'); }catch(e){} try{ tg.enableClosingConfirmation(); }catch(e){} }
 album();
