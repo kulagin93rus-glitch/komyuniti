@@ -110,8 +110,10 @@ const fmt = n => Math.round(n).toLocaleString('ru-RU').replace(/ /g,' ');
 const now = () => new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function logEv(kind, val){ LOG.push([now(), kind, val||'']); api('event', {kind:kind, val:String(val||'')}); }
-function add(html, cls='') { const d=document.createElement('div'); d.className='msg '+cls; d.innerHTML=html+'<div class="time">'+now()+'</div>'; chat.appendChild(d); d.scrollIntoView({behavior:'smooth',block:'end'}); return d; }
-function sys(t){ const d=document.createElement('div'); d.className='msg sys'; d.textContent=t; chat.appendChild(d); d.scrollIntoView({block:'end'}); }
+function clearScreen(){ [...chat.children].forEach(n=>{ if(n.id!=='albumBox') n.remove(); }); }
+function showAlbum(on){ const a=document.getElementById('albumBox'); if(a) a.style.display=on?'':'none'; }
+function add(html, cls='') { clearScreen(); showAlbum(false); menuEl=null; const d=document.createElement('div'); d.className='msg '+cls; d.innerHTML=html; chat.appendChild(d); window.scrollTo({top:0,behavior:'smooth'}); return d; }
+function sys(t){ }
 function btn(b){ return '<button class="'+(b.p?'p ':'')+(b.nav?'nav ':'')+(b.on?'on':'')+'" data-a="'+b.a+'" data-v="'+(b.v||'')+'">'+b.t+'</button>'; }
 function kb(rows){ return '<div class="kb">'+rows.map(r=>'<div class="row">'+r.map(btn).join('')+'</div>').join('')+'</div>'; }
 function bossPush(html){ api('card', {html:html}); }
@@ -200,16 +202,17 @@ const VIEWS = {
 function render(view, push=true){
   if(push && menuEl && menuEl.dataset.view && menuEl.dataset.view!==view) stack.push(menuEl.dataset.view);
   const v=VIEWS[view]();
-  const html='<div class="crumb">'+v.crumb+'</div>'+v.html+(v.hint?'<div class="hint">'+v.hint+'</div>':'')+(v.hint2?'<div class="hint" style="color:var(--accent-2)">'+v.hint2+'</div>':'')+kb(v.kb)+'<div class="staleN">кнопки перенесены в новое меню ниже ↓</div>';
+  const html='<div class="crumb">'+v.crumb+'</div>'+v.html+(v.hint?'<div class="hint">'+v.hint+'</div>':'')+(v.hint2?'<div class="hint" style="color:var(--accent-2)">'+v.hint2+'</div>':'')+kb(v.kb);
   if(!menuEl){ menuEl=add(html); menuEl.dataset.edits=0; }
-  else { const n=(+menuEl.dataset.edits||0)+1; menuEl.dataset.edits=n; menuEl.innerHTML=html+'<div class="time"><span class="ed">изменено</span>'+now()+'</div>'; menuEl.scrollIntoView({behavior:'smooth',block:'end'}); }
+  else { menuEl.innerHTML=html; window.scrollTo({top:0,behavior:'smooth'}); }
+  showAlbum(view==='home');
   menuEl.dataset.view=view;
   state.writing = (view==='write'||(view==='intent'&&['price','other'].includes(state.intent))) ? 'lead' : (view==='reqStep' ? 'req' : (view==='own' ? 'vol' : (view==='zhdSt' ? 'zhdSt' : (view==='orderInn' ? 'ordInn' : (view==='orderContact' ? 'ordContact' : false)))));
 }
-function newMenu(view){ if(menuEl){ menuEl.classList.add('stale'); menuEl=null; } stack=[]; render(view,false); }
+function newMenu(view){ menuEl=null; stack=[]; render(view,false); }
 function back(){ const prev=stack.pop()||'home'; render(prev,false); }
 function album(){
-  add('<div class="album" style="margin-bottom:-4px"><img src="'+IMG.DGKS+'" data-z="DGKS"><img src="'+IMG.benzin+'" data-z="benzin"><img src="'+IMG.diesel+'" data-z="diesel"><img src="'+IMG.nb+'" data-z="nb"></div>');
+  if(!document.getElementById('albumBox')){ const d=document.createElement('div'); d.id='albumBox'; d.className='msg'; d.style.maxWidth='100%'; d.innerHTML='<div class="album" style="margin:-4px -6px -4px"><img src="'+IMG.DGKS+'" data-z="DGKS"><img src="'+IMG.benzin+'" data-z="benzin"><img src="'+IMG.diesel+'" data-z="diesel"><img src="'+IMG.nb+'" data-z="nb"></div>'; chat.insertBefore(d, chat.firstChild); }
   logEv('показ альбома', KP);
   newMenu('home');
 }
@@ -269,12 +272,11 @@ chat.addEventListener('click', e=>{
 document.getElementById('ovTail').addEventListener('click', e=>{ const b=e.target.closest('button[data-a]'); if(!b) return; closeOv(); logEv('ссылка в конце страницы', b.textContent); if(b.dataset.a==='home'){ stack=[]; render('home',false); } else action(b.dataset.a,'',b.textContent+' (со страницы)'); });
 document.getElementById('ovClose').onclick=closeOv;
 document.querySelector('.rk').addEventListener('click', e=>{ const b=e.target.closest('button[data-r]'); if(!b) return;
-  add(b.textContent,'out'); logEv('нижняя клавиатура', b.textContent);
+  logEv('нижняя клавиатура', b.textContent);
   const r=b.dataset.r; if(r==='price') album(); else if(r==='calc') newMenu('calcProd'); else newMenu('write'); });
 
 function sendMsg(){ const i=document.getElementById('inp'); const t=i.value.trim(); if(!t) return; i.value='';
-    add(esc(t),'out');
-  if(state.writing==='vol'){ const m=t.toLowerCase().replace(/\s/g,'').match(/^(\d+(?:[.,]\d+)?)(л|l|т|t|тн|кг|kg)?$/); let L=0;
+    if(state.writing==='vol'){ const m=t.toLowerCase().replace(/\s/g,'').match(/^(\d+(?:[.,]\d+)?)(л|l|т|t|тн|кг|kg)?$/); let L=0;
     if(m){ const n=parseFloat(m[1].replace(',','.')); const u=m[2]||'л'; const it=ITEMS.find(i=>i.name===state.prod);
       if(u==='т'||u==='t'||u==='тн') L=n*1000/it.dens; else if(u==='кг'||u==='kg') L=n/it.dens; else L=n; }
     if(L>=500 && L<=100000){ state.vol=Math.round(L); render('result'); logEv('расчёт', state.prod+' '+fmt(state.vol)+' л'); }
