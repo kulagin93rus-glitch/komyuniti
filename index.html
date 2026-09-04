@@ -82,6 +82,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:"IBM Plex Sans",
 .log td:first-child{white-space:nowrap}.log td:nth-child(2){color:var(--txt)}
 @keyframes in{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.msg{animation:none}}
+.tel{color:var(--accent-2);text-decoration:none;border-bottom:1px dotted var(--accent-2);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -136,7 +137,7 @@ const VIEWS = {
     const dg=ITEMS.find(i=>i.name==='ДГКС'); const dt=mn(/^ДТ/), ai=mn(/^АИ/);
     return {crumb:'<b>Главная</b> · цены на '+DATE_H+' · самовывоз · с НДС',
     html:'<table class="calc" style="margin-top:0"><tr><td><b>ДГКС</b> <span style="color:var(--muted)">завод, круглосуточно</span></td><td>'+(dg?fp(dg.kg):'—')+' ₽/кг</td></tr><tr><td><b>ДТ ЕВРО</b> <span style="color:var(--muted)">'+cnt(/^ДТ/)+' пунктов, Юг и Черноземье</span></td><td>от '+(dt!=null?fp(dt):'—')+' ₽/кг</td></tr><tr><td><b>Бензины</b> <span style="color:var(--muted)">завод и нефтебазы</span></td><td>от '+(ai!=null?fp(ai):'—')+' ₽/кг</td></tr></table><div style="margin-top:8px">Чем вам помочь?</div>',
-    hint:'Позвонить: +7 918 966 66 69 · Данил',
+    hint:'Позвонить: <a href="tel:+79189666669" class="tel">+7 918 966 66 69</a> · Данил',
     kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}; },
   calcProd: ()=>{ const fams=FAM_ORDER.filter(f=>ITEMS.some(i=>FAM(i)===f)); const btns=fams.map(f=>({t:f+(ITEMS.filter(i=>FAM(i)===f).length>1?' · '+ITEMS.filter(i=>FAM(i)===f).length:''),a:'fam',v:f}));
     return {crumb:'Главная › <b>Расчёт стоимости</b> · шаг 1 из 3', html:'Что считаем? Все позиции — из действующего прайса на '+DATE_H+'.', kb:rows2(btns).concat([NAV()])}; },
@@ -185,7 +186,7 @@ const VIEWS = {
   subDone: ()=>({crumb:'Главная › Подписка › <b>оформлена</b>', html:'Подписка оформлена: <b>'+[...state.subs].join(', ')+'</b>.<br>Пример уведомления: «ДГКС: 90 → 92 ₽/кг с 04.09». В каждом уведомлении будет кнопка «Отписаться».',
     kb:[[{t:'Изменить набор',a:'sub',nav:1},{t:'Главная',a:'home',nav:1}]]}),
   write: ()=>({crumb:'Главная › <b>Менеджер</b>', html:'<b>Здравствуйте! Данил, менеджер КОМЬЮНИТИ.</b> Пишите сюда — читаю сам и отвечаю в этом же чате.'+(state.item!=null&&state.vol?'<br><i>Ваш расчёт уже у меня: '+state.prod+' · '+shortBasis(ITEMS[state.item])+', '+fL(state.vol)+'.</i>':'')+'<br>Чем вам помочь?',
-    hint:'В рабочее время (08:00–20:00 МСК) отвечаю обычно в течение часа; ночью — с утра. Удобнее голосом — +7 918 966 66 69.',
+    hint:'В рабочее время (08:00–20:00 МСК) отвечаю обычно в течение часа; ночью — с утра. Удобнее голосом — <a href="tel:+79189666669" class="tel">+7 918 966 66 69</a>.',
     kb:[[{t:'✍️ Написать Данилу в чат',a:'tochat',p:1}],[{t:'💰 Цена на партию',a:'intent',v:'price'},{t:'📑 Условия сделки',a:'intent',v:'terms'}],[{t:'🏢 Реквизиты',a:'intent',v:'req'},{t:'❓ Другой вопрос',a:'intent',v:'other'}],[{t:'Главная',a:'home',nav:1}]]}),
   intent: ()=>{
     if(state.intent==='terms') return {crumb:'Главная › Менеджер › <b>Условия оплаты и отгрузки</b>', html:'<b>Как проходит сделка</b><br>1. <b>Договор</b> — подписываем один раз, дальше работаем по заявкам.<br>2. <b>Заявка</b> — продукт, объём в литрах, пункт отгрузки. Я выставляю счёт: литры × средняя плотность = кг × цена.<br>3. <b>Оплата</b> — безналичная, по счёту, предоплата. Отсрочка — обсуждаем индивидуально при регулярных объёмах.<br>4. <b>Отгрузка</b> — заводы круглосуточно после оплаты; нефтебазы и ЛПДС — дату подачи согласуем заранее. Паспорт качества и накладная — на месте.<br>5. <b>Закрытие</b> — по фактической массе в накладной: акт сверки, УПД. Переплату вернём или зачтём в следующую партию. Документы — через ЭДО или на почту.',
@@ -320,5 +321,6 @@ album();
 api('open', {});
 </script>
 
+<script>document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a.tel'):null;if(a){try{logEv('звонок Данилу','tel');}catch(_){}}});</script>
 </body>
 </html>
