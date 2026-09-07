@@ -58,6 +58,8 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:"IBM Plex Sans",
 .calc td{padding:4px 0;border-bottom:1px solid var(--line)}
 .calc td:last-child{text-align:right;font-weight:600;white-space:nowrap;padding-left:8px}
 .calc td.e{color:var(--accent-2)}
+.calc.inv td:last-child{white-space:normal;word-break:break-word;max-width:60%}
+.calc.inv td:first-child{color:var(--muted);font-weight:400;width:40%}
 .pl h4{margin:14px 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2)}
 .pl table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
 .pl td{padding:7px 0;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px;line-height:1.3}
@@ -135,7 +137,8 @@ function kb(rows){ return '<div class="kb">'+rows.map(r=>'<div class="row">'+r.m
 function bossPush(html){ api('card', {html:html}); }
 
 /* ---------- сообщение-меню: одно, редактируется на месте ---------- */
-let menuEl=null, stack=[], state={prod:null, vol:null, subs:new Set(['ДГКС']), writing:false, zhd:{}}; // vol — литры
+let menuEl=null, stack=[], state={prod:null, vol:null, subs:new Set(['ДГКС']), writing:false, zhd:{}, inv:null};
+window.LAST=null;   /* 07.09.2026: реквизиты прошлого запроса {inn, contact} — с сервера */ // vol — литры
 const NPZ = {'ДГКС':'Ильский НПЗ','АИ-92-К4':'Славянский НПЗ','АИ-95-К4':'Славянский НПЗ','АИ-98-К4':'Славянский НПЗ'};
 const fd = d => d.toFixed(3).replace('.',',');
 const fL = n => fmt(n)+' л';
@@ -153,7 +156,7 @@ const VIEWS = {
     return {crumb:'<b>Главная</b> · цены на '+DATE_H+' · самовывоз · с НДС',
     html:'<table class="calc" style="margin-top:0">'+offerRow()+'<tr><td><b>ДГКС</b> <span style="color:var(--muted)">завод, круглосуточно</span></td><td>'+(dg?fp(dg.kg):'—')+' ₽/кг</td></tr><tr><td><b>ДТ ЕВРО</b> <span style="color:var(--muted)">'+cnt(/^ДТ/)+' пунктов, Юг и Черноземье</span></td><td>от '+(dt!=null?fp(dt):'—')+' ₽/кг</td></tr><tr><td><b>Бензины</b> <span style="color:var(--muted)">завод и нефтебазы</span></td><td>от '+(ai!=null?fp(ai):'—')+' ₽/кг</td></tr></table><div style="margin-top:8px">Чем вам помочь?</div>',
     hint:(window.FRESH.line?window.FRESH.line+' · ':'')+'Позвонить: <a href="tel:+79189666669" class="tel">+7 918 966 66 69</a> · Данил',
-    kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}; },
+    kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧾 Выставить счёт',a:'inv'}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}; },
   price: ()=>{ const grp=[]; const push=(t,arr)=>{ if(arr.length) grp.push([t,arr]); };
     const W=ITEMS.map((it,i)=>[it,i]).filter(([it])=>!it.offer);
     push('ДГКС · Ильский НПЗ', W.filter(([it])=>it.name==='ДГКС'));
@@ -168,6 +171,26 @@ const VIEWS = {
     return {crumb:'Главная › <b>Прайс и условия</b> · цены на '+DATE_H+' · самовывоз · с НДС', html:html,
       hint:'Цена за килограмм с НДС; в литрах — справочно, по средней плотности. Нажмите строку — посчитаю под ваш объём.'+(window.FRESH.line?' '+window.FRESH.line:''),
       kb:[[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'📄 Прайс PDF',a:'pdf'}],[{t:'🖼 Открыть картинкой',a:'longimg'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'Главная',a:'home',nav:1}]]}; },
+  invProd: ()=>{ const fams=FAM_ORDER.filter(f=>ITEMS.some(i=>FAM(i)===f && !i.offer)); const btns=fams.map(f=>({t:f+(ITEMS.filter(i=>FAM(i)===f&&!i.offer).length>1?' · '+ITEMS.filter(i=>FAM(i)===f&&!i.offer).length:''),a:'invFam',v:f}));
+    return {crumb:'Главная › <b>Счёт по договору</b> · шаг 1 из 3', html:'<b>Что отгружаем?</b> Цены — по прайсу на '+DATE_H+'; в сводке цену можно изменить.', hint:'Для клиентов с договором. Договора ещё нет — нажмите «Рассчитать стоимость» → «Оформить заявку», оформим договор и счёт одним заходом.', kb:rows2(btns).concat([NAV()])}; },
+  invItem: ()=>{ const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===state.inv.fam && !it.offer); const south=arr.filter(([it])=>!isChern(it)), chern=arr.filter(([it])=>isChern(it));
+    const ib=(it,i)=>{ const b=itemBtn(it,i); b.a='invItem'; return b; };
+    return {crumb:'Главная › Счёт › <b>'+state.inv.fam+'</b> · шаг 1 из 3', html:'Откуда забираете? Цена в ₽/кг, самовывоз.', kb:rows2(south.map(([it,i])=>ib(it,i))).concat(rows2(chern.map(([it,i])=>ib(it,i)))).concat([NAV()])}; },
+  invVol: ()=>({crumb:'Главная › Счёт › '+state.inv.prod+' · '+shortBasis(ITEMS[state.inv.item])+' · <b>объём</b> · шаг 2 из 3', html:'Объём в литрах? <span class="hint">Счёт — в литрах × средняя плотность, окончательно — по массе в накладной.</span>',
+    kb:[[{t:'5 000 л',a:'invVol',v:'5000'},{t:'10 000 л',a:'invVol',v:'10000'}],[{t:'15 000 л',a:'invVol',v:'15000'},{t:'30 000 л',a:'invVol',v:'30000'}],[{t:'Свой объём (л или т)',a:'invOwn'}],NAV()]}),
+  invOwn: ()=>({crumb:'Главная › Счёт › '+state.inv.prod+' › <b>свой объём</b>', html:'Напишите объём числом: в литрах — <b>25000</b>; в тоннах — <b>20 т</b>.', kb:[NAV()]}),
+  invReq: ()=>{ const L=window.LAST; if(L&&L.inn){ return {crumb:'Главная › Счёт › <b>реквизиты</b> · шаг 3 из 3', html:'<b>Как в прошлый раз?</b><br>ИНН '+esc(L.inn)+(L.org?' · '+esc(L.org):'')+(L.contact?'<br>Контакт: '+esc(L.contact):''), hint:'Счёт выставлю на эту организацию, о готовности напишу этому контакту.', kb:[[{t:'✅ Да, как в прошлый раз',a:'invUseLast',p:1}],[{t:'✏️ Другие реквизиты',a:'invInn'}],NAV()]}; }
+    return VIEWS.invInn(); },
+  invInn: ()=>({crumb:'Главная › Счёт › <b>реквизиты</b> · шаг 3 из 3', html:'<b>ИНН вашей компании</b> — 10 или 12 цифр. По нему найду договор и выставлю счёт.', hint:'Название компании писать не нужно — оно есть в договоре.', kb:[NAV()]}),
+  invContact: ()=>({crumb:'Главная › Счёт › реквизиты · <b>контакт</b>', html:'<b>Кому написать о готовности счёта?</b> Имя и телефон одной строкой, например: «Пётр, +7 918 000-00-00».', hint:'Позвоню только по этому счёту, если что-то нужно уточнить.', kb:[NAV()]}),
+  invPrice: ()=>({crumb:'Главная › Счёт › <b>цена в счёте</b>', html:'<b>Какую цену поставить в счёт?</b> Число в ₽/кг, например <b>95</b> или <b>93,5</b>.', hint:'Сейчас по прайсу: '+fp(ITEMS[state.inv.item].kg)+' ₽/кг. Цена ниже прайса — согласую с Данилом и подтвержу отдельно.', kb:[[{t:'Оставить '+fp(ITEMS[state.inv.item].kg)+' ₽/кг',a:'invPriceKeep'}],NAV()]}),
+  invConfirm: ()=>{ const o=state.inv, it=ITEMS[o.item]; const kg=Math.round(o.vol*it.dens); const price=o.price||it.kg; const sum=kg*price; const below=price<it.kg-0.001, above=price>it.kg+0.001;
+    return {crumb:'Главная › Счёт › <b>проверьте</b>', html:'<b>Запрос на счёт</b><table class="calc inv"><tr><td>Продукт</td><td>'+esc(o.prod.startsWith('ДТ-Л-К5 ')?'ДТ ЕВРО '+o.prod.replace('ДТ-Л-К5 ',''):o.prod)+'</td></tr><tr><td>Пункт отгрузки</td><td>'+esc(shortBasis(it))+'</td></tr><tr><td>Объём</td><td>'+fL(o.vol)+' ≈ '+fmt(kg)+' кг</td></tr><tr><td>Цена в счёте</td><td>'+fp(price)+' ₽/кг'+(o.price?(below?' <span class="e">ниже прайса</span>':(above?' <span style="color:var(--muted);font-weight:400">выше прайса</span>':'')):' <span style="color:var(--muted);font-weight:400">по прайсу</span>')+'</td></tr><tr><td>Сумма предварительно</td><td>'+fmt(sum)+' ₽</td></tr><tr><td>ИНН</td><td>'+esc(o.inn)+(o.org?'<span class="m" style="display:block;color:var(--muted);font-weight:400">'+esc(o.org)+'</span>':'')+'</td></tr><tr><td>Контакт</td><td style="white-space:normal;font-weight:400">'+esc(o.contact)+'</td></tr></table>',
+      hint:(below?'Цена ниже прайса: счёт выставлю после подтверждения Данила — напишу сюда. ':'')+'Сумма предварительная: по литрам и средней плотности, окончательно — по массе в накладной. Нажимая «Запросить счёт», вы соглашаетесь на обработку данных для выставления счёта.',
+      kb:[[{t:'🧾 Запросить счёт',a:'invSend',p:1}],[{t:'✏️ Объём',a:'invVolEdit'},{t:'✏️ Цена',a:'invPrice'}],[{t:'✏️ Реквизиты',a:'invInn'},{t:'Главная',a:'home',nav:1}]]}; },
+  invDone: ()=>{ const o=state.inv, it=ITEMS[o.item]; const kg=Math.round(o.vol*it.dens); const price=o.price||it.kg; const sum=kg*price; const below=price<it.kg-0.001;
+    return {crumb:'Главная › Счёт › <b>принят</b>', html:'<b>Запрос на счёт принят.</b> '+(below?'Цена ниже прайса — согласую с Данилом и напишу сюда. ':'')+'Счёт на '+fmt(sum)+' ₽ пришлю сюда, в чат — в рабочее время обычно в течение часа (08:00–20:00 МСК), ночью — с утра.<br><span style="color:var(--muted);font-size:13px">Дальше: счёт → предоплата → отгрузка → акт сверки по факту.</span>',
+      hint:'Если что-то изменится (объём, дата) — просто напишите здесь.', kb:[[{t:'💬 Написать менеджеру',a:'write'}],[{t:'🧾 Ещё один счёт',a:'inv'},{t:'Главная',a:'home',nav:1}]]}; },
   calcProd: ()=>{ const fams=FAM_ORDER.filter(f=>ITEMS.some(i=>FAM(i)===f)); const btns=fams.map(f=>({t:f+(ITEMS.filter(i=>FAM(i)===f).length>1?' · '+ITEMS.filter(i=>FAM(i)===f).length:''),a:'fam',v:f}));
     return {crumb:'Главная › <b>Расчёт стоимости</b> · шаг 1 из 3', html:'Что считаем? Все позиции — из действующего прайса на '+DATE_H+'.', kb:rows2(btns).concat([NAV()])}; },
   calcItem: ()=>{ const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===state.fam); const south=arr.filter(([it])=>!isChern(it)), chern=arr.filter(([it])=>isChern(it));
@@ -237,7 +260,7 @@ function render(view, push=true){
   else { menuEl.innerHTML=html; window.scrollTo({top:0,behavior:'smooth'}); }
   showAlbum(view==='home');
   menuEl.dataset.view=view;
-  state.writing = (view==='write'||(view==='intent'&&['price','other'].includes(state.intent))) ? 'lead' : (view==='reqStep' ? 'req' : (view==='own' ? 'vol' : (view==='zhdSt' ? 'zhdSt' : (view==='orderInn' ? 'ordInn' : (view==='orderContact' ? 'ordContact' : false)))));
+  state.writing = (view==='write'||(view==='intent'&&['price','other'].includes(state.intent))) ? 'lead' : (view==='reqStep' ? 'req' : (view==='own' ? 'vol' : (view==='zhdSt' ? 'zhdSt' : (view==='orderInn' ? 'ordInn' : (view==='orderContact' ? 'ordContact' : ((view==='invInn'||view==='invReq') ? 'invInn' : (view==='invContact' ? 'invContact' : (view==='invPrice' ? 'invPrice' : (view==='invOwn' ? 'invOwn' : false)))))))));
 }
 function newMenu(view){ menuEl=null; stack=[]; render(view,false); }
 function back(){ const prev=stack.pop()||'home'; render(prev,false); }
@@ -262,6 +285,20 @@ function action(a, v, label){
   else if(a==='home'){ if(menuEl && menuEl.dataset.view==='write') sys('Режим «сообщение менеджеру» выключен.'); stack=[]; render('home',false); }
   else if(a==='long') render('price');
   else if(a==='longimg') openLong();
+  else if(a==='inv'){ state.inv={fam:null,item:null,prod:null,vol:null,price:0,inn:'',org:'',contact:''}; render('invProd'); }
+  else if(a==='invFam'){ state.inv.fam=v; const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===v && !it.offer); if(arr.length===1){ state.inv.item=arr[0][1]; state.inv.prod=arr[0][0].name; render('invVol'); } else render('invItem'); }
+  else if(a==='invItem'){ state.inv.item=+v; state.inv.prod=ITEMS[+v].name; render('invVol'); }
+  else if(a==='invVol'){ state.inv.vol=+v; if(state.inv.inn) render('invConfirm'); else render('invReq'); }
+  else if(a==='invVolEdit'){ render('invVol'); }
+  else if(a==='invOwn'){ render('invOwn'); }
+  else if(a==='invUseLast'){ const L=window.LAST; state.inv.inn=L.inn; state.inv.org=L.org||''; state.inv.contact=L.contact||''; if(!state.inv.contact){ render('invContact'); } else render('invConfirm'); }
+  else if(a==='invInn'){ render('invInn'); }
+  else if(a==='invPrice'){ render('invPrice'); }
+  else if(a==='invPriceKeep'){ state.inv.price=0; render('invConfirm'); }
+  else if(a==='invSend'){ const o=state.inv, it=ITEMS[o.item]; const kg=Math.round(o.vol*it.dens); const price=o.price||it.kg; const sum=kg*price; render('invDone'); logEv('счёт запрошен', o.prod+' · '+shortBasis(it)+' · '+fL(o.vol)+' · '+fp(price)+' ₽/кг');
+    window.LAST={inn:o.inn, org:o.org, contact:o.contact};
+    api('invoice', {prod:o.prod, basis:shortBasis(it), item:it.name+' · '+(it.res||''), vol:o.vol, kg:kg, price:price, listPrice:it.kg, sum:sum, inn:o.inn, org:o.org, contact:o.contact});
+    void('<div class="from">СЧЁТ ПО ДОГОВОРУ · @client_test · '+now()+'</div><b>'+esc(o.prod)+' · '+esc(shortBasis(it))+', '+fL(o.vol)+'</b> ≈ '+fmt(kg)+' кг × '+fp(price)+' ₽/кг = '+fmt(sum)+' ₽'+(o.price?(price<it.kg?' · <b>НИЖЕ ПРАЙСА</b> ('+fp(it.kg)+')':' · выше прайса ('+fp(it.kg)+')'):' · по прайсу')+'<br>ИНН: '+esc(o.inn)+(o.org?' · '+esc(o.org):'')+'<br>Контакт: '+esc(o.contact)+'<div style="margin-top:6px;font-size:12px;color:var(--muted)">Клиенту обещан счёт в течение часа (08–20). Ответьте файлом — доставлю в чат.</div>'); }
   else if(a==='calc'){ if(menuEl&&menuEl.dataset.view==='result'){ stack=[]; } render('calcProd'); }
   else if(a==='fam'){ state.fam=v; const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===v); if(arr.length===1){ state.item=arr[0][1]; state.prod=arr[0][0].name; render('calcVol'); } else render('calcItem'); }
   else if(a==='item'){ state.item=+v; state.prod=ITEMS[state.item].name; render('calcVol'); }
@@ -278,7 +315,7 @@ function action(a, v, label){
   else if(a==='reqmailok'){ api('reqmail', {}); add('Жду письмо. Как получу — подтвержу в чате и подготовлю договор.'+kb([[{t:'Главная',a:'home',nav:1}]])); }
   else if(a==='sub') render('sub');
   else if(a==='order'){ const it=ITEMS[state.item]; if(!it||!state.vol){ render('calcProd'); return; } const kg=Math.round(state.vol*it.dens); state.order={calc:state.prod+' · '+shortBasis(it)+', '+fL(state.vol), sum:kg*it.kg, kg:kg, item:state.item, vol:state.vol, hasContract:null, inn:'', contact:'', when:''}; render('orderQ1'); }
-  else if(a==='ordYes'){ state.order.hasContract=true; render('orderInn'); }
+  else if(a==='ordYes'){ const o=state.order; state.inv={fam:FAM(ITEMS[o.item]),item:o.item,prod:ITEMS[o.item].name,vol:o.vol,price:0,inn:'',org:'',contact:''}; render('invReq'); }
   else if(a==='ordNo'){ state.order.hasContract=false; render('orderContact'); }
   else if(a==='ordWhen'){ state.order.when=v; render('orderConfirm'); }
   else if(a==='ordSend'){ const o=state.order; render('orderDone'); api('order', {calc:o.calc, sum:o.sum, kg:o.kg, vol:o.vol, hasContract:!!o.hasContract, inn:o.inn||'', contact:o.contact||'', when:o.when||'', offer:(state.item!=null&&ITEMS[state.item]&&ITEMS[state.item].offer)||''}); logEv('заявка отправлена', o.calc+' · '+fmt(o.sum)+' ₽');
@@ -309,7 +346,12 @@ document.querySelector('.rk').addEventListener('click', e=>{ const b=e.target.cl
   const r=b.dataset.r; if(r==='price') album(); else if(r==='calc') newMenu('calcProd'); else newMenu('write'); });
 
 function sendMsg(){ const i=document.getElementById('inp'); const t=i.value.trim(); if(!t) return; i.value='';
-    if(state.writing==='vol'){ const m=t.toLowerCase().replace(/\s/g,'').match(/^(\d+(?:[.,]\d+)?)(л|l|т|t|тн|кг|kg)?$/); let L=0;
+    if(state.writing==='invInn'){ const d=t.replace(/\D/g,''); if(!/^\d{10}(\d{2})?$/.test(d)){ add('ИНН — это 10 или 12 цифр. Проверьте, пожалуйста.'+kb([[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]])); return; } state.inv.inn=d; const org=t.replace(/[\d\s]+/,'').replace(/^[·,;\-–—]\s*/,'').trim(); if(org) state.inv.org=org; if(state.inv.contact) render('invConfirm'); else render('invContact'); return; }
+  if(state.writing==='invContact'){ if(t.length<5||!/\d{6,}/.test(t.replace(/\D/g,''))){ add('Напишите имя и телефон одной строкой, например «Пётр, +7 918 000-00-00».'+kb([[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]])); return; } state.inv.contact=t.trim(); render('invConfirm'); return; }
+  if(state.writing==='invPrice'){ const n=parseFloat(t.replace(/\s/g,'').replace(',','.')); if(!(n>30&&n<400)){ add('Нужно число в ₽/кг, например 95 или 93,5.'+kb([[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]])); return; } state.inv.price=Math.round(n*100)/100; render('invConfirm'); return; }
+  if(state.writing==='invOwn'){ const m=t.toLowerCase().replace(/\s/g,'').match(/^(\d+(?:[.,]\d+)?)(л|l|т|t|тн|кг|kg)?$/); let L=0; if(m){ const n=parseFloat(m[1].replace(',','.')); const u=m[2]||'л'; const it=ITEMS[state.inv.item]; if(u==='т'||u==='t'||u==='тн') L=n*1000/it.dens; else if(u==='кг'||u==='kg') L=n/it.dens; else L=n; }
+    if(L>=500 && L<=100000){ state.inv.vol=Math.round(L); if(state.inv.inn) render('invConfirm'); else render('invReq'); } else add('Нужно число: литры (например 25000) или тонны (например 20 т). Диапазон 500–100 000 л.'+kb([[{t:'◀ Назад',a:'back',nav:1},{t:'Главная',a:'home',nav:1}]])); return; }
+  if(state.writing==='vol'){ const m=t.toLowerCase().replace(/\s/g,'').match(/^(\d+(?:[.,]\d+)?)(л|l|т|t|тн|кг|kg)?$/); let L=0;
     if(m){ const n=parseFloat(m[1].replace(',','.')); const u=m[2]||'л'; const it=ITEMS.find(i=>i.name===state.prod);
       if(u==='т'||u==='t'||u==='тн') L=n*1000/it.dens; else if(u==='кг'||u==='kg') L=n/it.dens; else L=n; }
     if(L>=500 && L<=100000){ state.vol=Math.round(L); render('result'); logEv('расчёт', state.prod+' '+fmt(state.vol)+' л'); }
@@ -351,10 +393,11 @@ if(tg){ tg.ready(); tg.expand(); try{ tg.setHeaderColor('#17212B'); tg.setBackgr
 album();
 /* ПРЕДЛОЖЕНИЕ (06.09): одна строка листа «Предложения» → строка на главной и позиция в калькуляторе */
 window.OFFER=null;
+(function(){ try{ const sp=(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||new URLSearchParams(location.search).get('start')||''; if(/^invoice/.test(sp)){ setTimeout(()=>{ try{ action('inv','', 'deep-link счёт'); }catch(e){} }, 300); } }catch(e){} })();
 (function(){ try{ const m=QUOTED.match(/(\d{2})\.(\d{2})\.(\d{4})/); if(!m) return; const b=new Date(+m[3],+m[2]-1,+m[1]); const t=new Date(); t.setHours(0,0,0,0); if((t-b)/86400000>=1){ window.FRESH={line:'На сегодня подтвержу при заявке.', calc:'Цена на день отгрузки может отличаться — подтвержу при заявке.'}; } }catch(e){} })();
 function offerRow(){ const o=window.OFFER; if(!o) return ''; const where=[o.res,o.basis].filter(Boolean).join(', ');
   return '<tr class="offer" data-i="'+o.idx+'"><td><b>'+esc(o.name)+'</b> <span style="color:var(--muted)">'+esc(where)+'</span><br><span class="otag">'+esc(o.tag)+'</span>'+(o.note?' <span style="color:var(--muted)">· '+esc(o.note)+'</span>':'')+'</td><td>'+fp(o.price)+' ₽/кг</td></tr>'; }
-api('open', {}).then(j=>{ try{ if(j&&j.fresh){ window.FRESH={line:j.fresh.line||'', calc:j.fresh.calc||''}; if(window.FRESH.line) logEv('свежесть', window.FRESH.line); if(menuEl && menuEl.dataset.view==='home') render('home', false); } }catch(e){} try{ if(!j||!j.offer) return; const o=j.offer; o.idx=ITEMS.length; ITEMS.push({cat:'', name:o.name, res:o.res||'', basis:o.basis||'', kg:o.price, dens:o.dens||0.83, dens_guess:!o.dens, group:'', point:'', offer:o.id}); window.OFFER=o; logEv('предложение показано', o.id); if(menuEl && menuEl.dataset.view==='home') render('home', false); }catch(e){} });
+api('open', {}).then(j=>{ try{ if(j&&j.last&&j.last.inn){ window.LAST={inn:j.last.inn, org:j.last.org||'', contact:j.last.contact||''}; } }catch(e){} try{ if(j&&j.fresh){ window.FRESH={line:j.fresh.line||'', calc:j.fresh.calc||''}; if(window.FRESH.line) logEv('свежесть', window.FRESH.line); if(menuEl && menuEl.dataset.view==='home') render('home', false); } }catch(e){} try{ if(!j||!j.offer) return; const o=j.offer; o.idx=ITEMS.length; ITEMS.push({cat:'', name:o.name, res:o.res||'', basis:o.basis||'', kg:o.price, dens:o.dens||0.83, dens_guess:!o.dens, group:'', point:'', offer:o.id}); window.OFFER=o; logEv('предложение показано', o.id); if(menuEl && menuEl.dataset.view==='home') render('home', false); }catch(e){} });
 chat.addEventListener('click', e=>{ const tr=e.target.closest('tr.offer'); if(!tr) return; logEv('предложение → расчёт', window.OFFER?window.OFFER.id:''); action('item', tr.dataset.i, 'предложение'); });
 </script>
 
