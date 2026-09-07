@@ -58,6 +58,14 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:"IBM Plex Sans",
 .calc td{padding:4px 0;border-bottom:1px solid var(--line)}
 .calc td:last-child{text-align:right;font-weight:600;white-space:nowrap;padding-left:8px}
 .calc td.e{color:var(--accent-2)}
+.pl h4{margin:14px 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2)}
+.pl table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.pl td{padding:7px 0;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px;line-height:1.3}
+.pl td:last-child{text-align:right;font-weight:700;white-space:nowrap;padding-left:10px;font-size:16px}
+.pl td .m{display:block;color:var(--muted);font-size:13px;font-weight:400}
+.pl tr[data-i]{cursor:pointer}
+.pl ol{padding-left:18px;margin:6px 0}
+.pl ol li{margin:4px 0;font-size:14px;line-height:1.35}
 .bottom{position:fixed;bottom:0;left:0;right:0;max-width:440px;margin:0 auto;background:#17212B;border-top:1px solid var(--line);z-index:6}
 .rk{display:flex;gap:6px;padding:8px 12px 0}
 .rk button{flex:1;background:#242F3D;border:0;border-radius:8px;color:var(--txt);padding:9px 6px;font:inherit;font-size:13px;cursor:pointer}
@@ -146,6 +154,20 @@ const VIEWS = {
     html:'<table class="calc" style="margin-top:0">'+offerRow()+'<tr><td><b>ДГКС</b> <span style="color:var(--muted)">завод, круглосуточно</span></td><td>'+(dg?fp(dg.kg):'—')+' ₽/кг</td></tr><tr><td><b>ДТ ЕВРО</b> <span style="color:var(--muted)">'+cnt(/^ДТ/)+' пунктов, Юг и Черноземье</span></td><td>от '+(dt!=null?fp(dt):'—')+' ₽/кг</td></tr><tr><td><b>Бензины</b> <span style="color:var(--muted)">завод и нефтебазы</span></td><td>от '+(ai!=null?fp(ai):'—')+' ₽/кг</td></tr></table><div style="margin-top:8px">Чем вам помочь?</div>',
     hint:(window.FRESH.line?window.FRESH.line+' · ':'')+'Позвонить: <a href="tel:+79189666669" class="tel">+7 918 966 66 69</a> · Данил',
     kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}; },
+  price: ()=>{ const grp=[]; const push=(t,arr)=>{ if(arr.length) grp.push([t,arr]); };
+    const W=ITEMS.map((it,i)=>[it,i]).filter(([it])=>!it.offer);
+    push('ДГКС · Ильский НПЗ', W.filter(([it])=>it.name==='ДГКС'));
+    push('Бензины · Славянск ЭКО', W.filter(([it])=>FAM(it)==='Бензины' && !it.group));
+    push('ДТ ЕВРО · завод и нефтебаза Краснодар', W.filter(([it])=>FAM(it)==='ДТ ЕВРО' && !it.group));
+    push('Нефтебазы · Юг', W.filter(([it])=>/^ЮГ/.test(it.group||'')));
+    push('Черноземье · базисы трубопровода', W.filter(([it])=>isChern(it)));
+    push('Волгоградская обл. · под запрос', W.filter(([it])=>/^ВОЛГОГРАД/.test(it.group||'')));
+    const row=([it,i])=>{ const nm=it.name.startsWith('ДТ-Л-К5 ')? 'ДТ ЕВРО '+it.name.replace('ДТ-Л-К5 ','') : it.name; const perL=it.dens? ' · ≈ '+(it.kg*it.dens).toFixed(2).replace('.',',')+' ₽/л' : ''; return '<tr data-i="'+i+'"><td>'+nm+'<span class="m">'+esc(it.res||'')+(it.basis&&it.basis!==it.res?' · '+esc(it.basis):'')+perL+'</span></td><td>'+fp(it.kg)+' ₽/кг</td></tr>'; };
+    const html='<div class="pl">'+grp.map(([t,arr])=>'<h4>'+t+'</h4><table>'+arr.map(row).join('')+'</table>').join('')+
+      '<h4>Условия сделки</h4><ol><li><b>Договор</b> — один раз, дальше по заявкам.</li><li><b>Заявка</b> — продукт, объём в литрах, пункт отгрузки. Счёт: литры × средняя плотность = кг × цена.</li><li><b>Оплата</b> — безналичная, по счёту, предоплата. Отсрочка — индивидуально при регулярных объёмах.</li><li><b>Отгрузка</b> — заводы круглосуточно после оплаты; нефтебазы и ЛПДС — дату подачи согласуем заранее. Паспорт качества и накладная — на месте. Самовывоз. Нужна доставка — напишите, обсудим условия.</li><li><b>Закрытие</b> — по фактической массе в накладной: акт сверки, УПД. Переплату вернём или зачтём в следующую партию.</li></ol></div>';
+    return {crumb:'Главная › <b>Прайс и условия</b> · цены на '+DATE_H+' · самовывоз · с НДС', html:html,
+      hint:'Цена за килограмм с НДС; в литрах — справочно, по средней плотности. Нажмите строку — посчитаю под ваш объём.'+(window.FRESH.line?' '+window.FRESH.line:''),
+      kb:[[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'📄 Прайс PDF',a:'pdf'}],[{t:'🖼 Открыть картинкой',a:'longimg'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'Главная',a:'home',nav:1}]]}; },
   calcProd: ()=>{ const fams=FAM_ORDER.filter(f=>ITEMS.some(i=>FAM(i)===f)); const btns=fams.map(f=>({t:f+(ITEMS.filter(i=>FAM(i)===f).length>1?' · '+ITEMS.filter(i=>FAM(i)===f).length:''),a:'fam',v:f}));
     return {crumb:'Главная › <b>Расчёт стоимости</b> · шаг 1 из 3', html:'Что считаем? Все позиции — из действующего прайса на '+DATE_H+'.', kb:rows2(btns).concat([NAV()])}; },
   calcItem: ()=>{ const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===state.fam); const south=arr.filter(([it])=>!isChern(it)), chern=arr.filter(([it])=>isChern(it));
@@ -229,6 +251,7 @@ function closeOv(){ document.getElementById('ov').classList.remove('on'); ovMode
 const CARDS=['DGKS','benzin','diesel','nb'], CARD_T={DGKS:'ДГКС',benzin:'Бензины К4',diesel:'ДТ ЕВРО',nb:'Нефтебазы и базисы'}; let ovMode=null, ovIdx=0;
 function openCard(i){ ovMode='cards'; ovIdx=(i+CARDS.length)%CARDS.length; const k=CARDS[ovIdx]; document.getElementById('ovT').textContent=CARD_T[k]+' · '+(ovIdx+1)+' из '+CARDS.length; document.getElementById('ovImg').src=IMG[k]; document.getElementById('ovTail').style.display='none'; document.getElementById('ov').classList.add('on'); document.getElementById('ovPrev').style.visibility=document.getElementById('ovNext').style.visibility='visible'; logEv('просмотр карточки', k); }
 function ovStep(d){ if(ovMode==='cards') openCard(ovIdx+d); }
+document.addEventListener('click', e=>{ const tr=e.target.closest('.pl tr[data-i]'); if(!tr) return; action('item', tr.dataset.i, 'строка прайса'); });
 document.getElementById('ovPrev').addEventListener('click', ()=>ovStep(-1)); document.getElementById('ovNext').addEventListener('click', ()=>ovStep(1));
 document.addEventListener('keydown', e=>{ if(!document.getElementById('ov').classList.contains('on')) return; if(e.key==='ArrowLeft') ovStep(-1); else if(e.key==='ArrowRight') ovStep(1); else if(e.key==='Escape') closeOv(); });
 (()=>{ let x0=null; const ov=document.getElementById('ov'); ov.addEventListener('touchstart', e=>{ x0=e.touches[0].clientX; }, {passive:true}); ov.addEventListener('touchend', e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>50) ovStep(dx<0?1:-1); }, {passive:true}); })();
@@ -237,7 +260,8 @@ function action(a, v, label){
   logEv('кнопка', label||a);
   if(a==='back') back();
   else if(a==='home'){ if(menuEl && menuEl.dataset.view==='write') sys('Режим «сообщение менеджеру» выключен.'); stack=[]; render('home',false); }
-  else if(a==='long') openLong();
+  else if(a==='long') render('price');
+  else if(a==='longimg') openLong();
   else if(a==='calc'){ if(menuEl&&menuEl.dataset.view==='result'){ stack=[]; } render('calcProd'); }
   else if(a==='fam'){ state.fam=v; const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===v); if(arr.length===1){ state.item=arr[0][1]; state.prod=arr[0][0].name; render('calcVol'); } else render('calcItem'); }
   else if(a==='item'){ state.item=+v; state.prod=ITEMS[state.item].name; render('calcVol'); }
