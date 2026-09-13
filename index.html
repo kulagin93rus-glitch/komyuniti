@@ -153,9 +153,9 @@ tr.offer td:first-child{border-left:3px solid var(--accent);padding-left:8px}
 @keyframes lg1{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
 @keyframes lg2{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
 @keyframes lg3{from{opacity:0}to{opacity:1}}
-.top .av{animation:lg1 .2s ease-out both}
-.top .av img{animation:lg2 .25s .08s cubic-bezier(.16,1,.3,1) both}
-.top .t,.top .s{animation:lg3 .2s .16s ease-out both}
+.top .av{animation:lg1 .2s ease-out backwards}
+.top .av img{animation:lg2 .25s .08s cubic-bezier(.16,1,.3,1) backwards}
+.top .t,.top .s{animation:lg3 .2s .16s ease-out backwards}
 </style>
 </head>
 <body>
@@ -461,9 +461,9 @@ function setInput(){ const i=document.getElementById('inp'); const w=state.writi
   const M={lead:['Напишите Данилу…','text'], invInn:['ИНН — 10 или 12 цифр','numeric'], ordInn:['ИНН — 10 или 12 цифр','numeric'], invContact:['Имя и телефон','text'], ordContact:['Имя и телефон','text'], vol:['Объём: 25000 или 20 т','decimal'], invOwn:['Объём: 25000 или 20 т','decimal'], invPrice:['Цена, ₽/кг: 95 или 93,5','decimal'], zhdSt:['Станция и дорога','text'], req:[['ИНН — 10 или 12 цифр','numeric'],['Электронная почта','email'],['Имя и телефон','text']][k]};
   const m=M[w]||['Написать Данилу…','text']; i.placeholder=m[0]; i.setAttribute('inputmode', m[1]); }
 function guard(doneView, pr, onOk){ const b=menuEl&&menuEl.querySelector('.kb button.p'); const btns=menuEl?[...menuEl.querySelectorAll('.kb button')]:[]; const t0=b?b.innerHTML:''; btns.forEach(x=>x.disabled=true); if(b){ b.innerHTML='<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>'+t0; b.classList.add('busy'); b.setAttribute('aria-busy','true'); }
-  let done=false; const fail=()=>{ if(done) return; done=true; btns.forEach(x=>x.disabled=false); if(b){ b.innerHTML=t0; b.classList.remove('busy'); b.removeAttribute('aria-busy'); } window._typed=''; err('Не удалось отправить — проверьте связь и нажмите ещё раз.'); logEv('ошибка отправки', doneView); };
+  let done=false; const fail=()=>{ if(done) return; done=true; btns.forEach(x=>x.disabled=false); if(b){ b.innerHTML=t0; b.classList.remove('busy'); b.removeAttribute('aria-busy'); } window._typed=''; const slow=window._slow; window._slow=false; err(slow?'Сервер отвечает дольше обычного. Подождите минуту: если подтверждение не пришло в чат — нажмите ещё раз.':'Не удалось отправить — проверьте связь и нажмите ещё раз.'); logEv(slow?'таймаут отправки':'ошибка отправки', doneView); };
   const ok=j=>{ if(done) return; if(j==null){ fail(); return; } done=true; hap('success'); if(b){ b.innerHTML='<svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" pathLength="1"/></svg>'+t0; } setTimeout(()=>{ render(doneView); if(onOk) onOk(); }, 450); };
-  (pr&&pr.then?pr:Promise.resolve(null)).then(ok, fail); setTimeout(fail, 9000); }
+  (pr&&pr.then?pr:Promise.resolve(null)).then(ok, fail); setTimeout(()=>{ if(!done){ window._slow=true; fail(); } }, 15000); }
 (function(){ if(!tg||!tg.BackButton) return; const ov=document.getElementById('ov');
   function upd(){ const home=menuEl&&menuEl.dataset.view==='home'&&!stack.length; try{ (ov.classList.contains('on')||!home)?tg.BackButton.show():tg.BackButton.hide(); }catch(e){} }
   try{ tg.BackButton.onClick(()=>{ if(ov.classList.contains('on')) closeOv(); else action('back','','BackButton'); }); }catch(e){}
