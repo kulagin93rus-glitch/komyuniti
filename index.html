@@ -118,6 +118,44 @@ tr.offer td:first-child{border-left:3px solid var(--accent);padding-left:8px}
 @keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
 .toast{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#242F3D;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13px;z-index:40;animation:in .2s ease-out}
 .input input:focus{outline:2px solid var(--accent-2);outline-offset:0}
+/* G: общий guard */
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{ animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important } }
+/* A: отклик строк прайса */
+.pl tr[data-i] td,tr.offer td{transition:background-color .12s ease}
+.pl tr[data-i]:active td,tr.offer:active td{background:#1F2E3C}
+/* B: смена экрана — уход 90 мс, приход 160 мс */
+.msg.leaving{opacity:.6;transition:opacity .09s ease-in}
+@keyframes enter{from{opacity:.6;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.entering{animation:enter .16s cubic-bezier(.16,1,.3,1)}
+/* C: состояния отправки */
+.kb button.busy[disabled]{opacity:1}
+.dots{display:inline-block;margin-right:8px;vertical-align:middle}
+.dots i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#fff;margin:0 2px;opacity:.35;animation:dot .9s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+.chk{width:18px;height:18px;margin-right:8px;vertical-align:-3px}
+.chk path{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw .2s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.hint.err{animation:fadein .15s ease-out}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.input.shake{animation:shake .3s ease-in-out}
+/* D: просмотр карточек */
+.overlay{opacity:0;transition:opacity .12s ease-in,display .12s allow-discrete}
+.overlay.on{opacity:1;transition:opacity .18s ease-out,display .18s allow-discrete}
+.overlay img{transform:scale(.96);transition:transform .18s cubic-bezier(.16,1,.3,1)}
+.overlay.on img{transform:none}
+@starting-style{.overlay.on{opacity:0}.overlay.on img{transform:scale(.96)}}
+@keyframes sl{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes sr{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+.overlay.on img.sl{animation:sl .16s ease-out}.overlay.on img.sr{animation:sr .16s ease-out}
+/* E: логотип на старте — build-on, один раз, ≤0,7 с, финальный кадр = обычная шапка */
+@keyframes lg1{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes lg2{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+@keyframes lg3{from{opacity:0}to{opacity:1}}
+.top .av{animation:lg1 .2s ease-out both}
+.top .av img{animation:lg2 .25s .08s cubic-bezier(.16,1,.3,1) both}
+.top .t,.top .s{animation:lg3 .2s .16s ease-out both}
 </style>
 </head>
 <body>
@@ -131,7 +169,7 @@ tr.offer td:first-child{border-left:3px solid var(--accent);padding-left:8px}
     <div class="input"><input id="inp" placeholder="Сообщение боту…" autocomplete="off"><button id="send" aria-label="Отправить">➤</button></div>
   </div>
 </div>
-<div class="overlay" id="ov"><div class="bar"><button id="ovPrev" class="nav" title="предыдущая" aria-label="Предыдущая карточка">‹</button><span id="ovT">Прайс и условия</span><button id="ovNext" class="nav" title="следующая" aria-label="Следующая карточка">›</button><button id="ovClose">✕ Закрыть</button></div><img id="ovImg" alt="Прайс и условия">
+<div class="overlay" id="ov"><div class="bar"><button id="ovPrev" class="nav" title="предыдущая" aria-label="Предыдущая карточка">‹</button><span id="ovT">Прайс и условия</span><button id="ovNext" class="nav" title="следующая" aria-label="Следующая карточка">›</button><button id="ovClose">✕ Закрыть</button></div><img id="ovImg" alt="Прайс и условия" decoding="async">
   <div class="tail" id="ovTail"><p>Что дальше?</p>
   <div class="kb"><div class="row"><button data-a="calc" data-ov="1">🧮 Рассчитать стоимость</button></div><div class="row"><button class="s" data-a="write" data-ov="1">💬 Написать менеджеру</button><button class="s" data-a="home" data-ov="1">◀ На главную</button></div></div></div></div>
 <script>
@@ -176,7 +214,7 @@ const VIEWS = {
     html:'<table class="calc" style="margin-top:0">'+offerRow()+'<tr><td><b>ДГКС</b> <span style="color:var(--muted)">завод, круглосуточно</span></td><td>'+(dg?fp(dg.kg):'—')+' ₽/кг</td></tr>'+[['Юг',i=>!isChern(i)],['Черноземье',isChern]].map(([nm,f])=>{ const a=ITEMS.filter(i=>!i.offer&&/^ДТ/.test(i.name)&&f(i)); if(!a.length) return ''; return '<tr><td><b>ДТ ЕВРО</b> <span style="color:var(--muted)">'+nm+', '+a.length+(a.length===1?' пункт':a.length<5?' пункта':' пунктов')+'</span></td><td>от '+fp(Math.min(...a.map(i=>i.kg)))+' ₽/кг</td></tr>'; }).join('')+'<tr><td><b>Бензины</b> <span style="color:var(--muted)">завод и нефтебазы</span></td><td>от '+(ai!=null?fp(ai):'—')+' ₽/кг</td></tr></table><div style="margin-top:8px">Чем вам помочь?</div>'+(window.OPEN_DONE?'':'<div class="skel"></div>'),
     hint:(window.FRESH.line?window.FRESH.line+' · ':'')+'Позвонить: <a href="tel:+79189666669" class="tel">+7 918 966 66 69</a> · Данил',
     kb:[[{t:'📋 Прайс и условия',a:'long',p:1}],[{t:'🧾 Выставить счёт',a:'inv'}],[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'💬 Менеджер Данил',a:'write'}],[{t:'🔔 Сообщать об изменении цены',a:'sub'},{t:'📄 Прайс PDF',a:'pdf'}]]}; },
-  price: ()=>{ const grp=[]; const push=(t,arr)=>{ if(arr.length) grp.push([t,arr]); };
+  price: ()=>{ const _k=ITEMS.length+'|'+(window.FRESH.line||''); if(window._pc&&window._pc.k===_k) return window._pc.v; const grp=[]; const push=(t,arr)=>{ if(arr.length) grp.push([t,arr]); };
     const W=ITEMS.map((it,i)=>[it,i]).filter(([it])=>!it.offer);
     push('ДГКС · Ильский НПЗ', W.filter(([it])=>it.name==='ДГКС'));
     push('Бензины · Славянск ЭКО', W.filter(([it])=>FAM(it)==='Бензины' && !it.group));
@@ -186,9 +224,9 @@ const VIEWS = {
     push('Волгоградская обл. · под запрос', W.filter(([it])=>/^ВОЛГОГРАД/.test(it.group||'')));
     const row=([it,i])=>{ const nm=it.name.startsWith('ДТ-Л-К5 ')? 'ДТ ЕВРО '+it.name.replace('ДТ-Л-К5 ','') : it.name; const perL=it.dens? ' · ≈ '+(it.kg*it.dens).toFixed(2).replace('.',',')+' ₽/л' : ''; return '<tr data-i="'+i+'"><td>'+nm+'<span class="m">'+esc(it.res||'')+(it.basis&&it.basis!==it.res?' · '+esc(it.basis):'')+perL+'</span></td><td>'+fp(it.kg)+' ₽/кг</td></tr>'; };
     const html='<div class="pl"><div class="hint" style="margin:0">Нажмите строку — посчитаю под ваш объём.</div>'+grp.map(([t,arr])=>'<h4>'+t+'</h4><table>'+arr.map(row).join('')+'</table>').join('')+'</div>';
-    return {crumb:'Главная › <b>Прайс и условия</b> · цены на '+DATE_H+' · самовывоз · с НДС', html:html,
+    return (window._pc={k:_k, v:{crumb:'Главная › <b>Прайс и условия</b> · цены на '+DATE_H+' · самовывоз · с НДС', html:html,
       hint:'Цена за килограмм с НДС; в литрах — справочно, по средней плотности.'+(window.FRESH.line?' '+window.FRESH.line:''),
-      kb:[[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'📑 Условия сделки',a:'intent',v:'terms'}],[{t:'📄 Прайс PDF',a:'pdf'},{t:'🖼 Открыть картинкой',a:'longimg'}],[{t:'💬 Менеджер Данил',a:'write'},{t:'Главная',a:'home',nav:1}]]}; },
+      kb:[[{t:'🧮 Рассчитать стоимость',a:'calc'},{t:'📑 Условия сделки',a:'intent',v:'terms'}],[{t:'📄 Прайс PDF',a:'pdf'},{t:'🖼 Открыть картинкой',a:'longimg'}],[{t:'💬 Менеджер Данил',a:'write'},{t:'Главная',a:'home',nav:1}]]}}).v; },
   invProd: ()=>{ const fams=FAM_ORDER.filter(f=>ITEMS.some(i=>FAM(i)===f && !i.offer)); const btns=fams.map(f=>({t:f+(ITEMS.filter(i=>FAM(i)===f&&!i.offer).length>1?' · '+ITEMS.filter(i=>FAM(i)===f&&!i.offer).length:''),a:'invFam',v:f}));
     return {crumb:'Главная › <b>Счёт по договору</b> · шаг 1 из 3', html:'<b>Что отгружаем?</b> Цены — по прайсу на '+DATE_H+'; в сводке цену можно изменить.', hint:'Для клиентов с договором. Договора ещё нет — нажмите «Рассчитать стоимость» → «Оформить заявку», оформим договор и счёт одним заходом.', kb:rows2(btns).concat([NAV()])}; },
   invItem: ()=>{ const arr=ITEMS.map((it,i)=>[it,i]).filter(([it])=>FAM(it)===state.inv.fam && !it.offer); const south=arr.filter(([it])=>!isChern(it)), chern=arr.filter(([it])=>isChern(it));
@@ -275,7 +313,7 @@ function render(view, push=true){
   const v=VIEWS[view]();
   const html='<div class="crumb">'+v.crumb+'</div>'+v.html+(state.err?'<div class="hint err">'+state.err+'</div>':'')+(v.hint?'<div class="hint">'+v.hint+'</div>':'')+(v.hint2?'<div class="hint" style="color:var(--accent-2)">'+v.hint2+'</div>':'')+kb(v.kb);
   if(!menuEl){ menuEl=add(html); menuEl.dataset.edits=0; }
-  else { menuEl.innerHTML=html; window.scrollTo({top:0,behavior:'smooth'}); }
+  else { const el=menuEl; const swap=()=>{ el.innerHTML=html; el.classList.remove('leaving'); if(!window._noAnim){ el.classList.remove('entering'); void el.offsetWidth; el.classList.add('entering'); } window._noAnim=false; window.scrollTo({top:0,behavior:(document.documentElement.scrollHeight>innerHeight*1.2?'smooth':'auto')}); }; if(window._noAnim||matchMedia('(prefers-reduced-motion: reduce)').matches){ swap(); } else { el.classList.add('leaving'); setTimeout(swap, 90); } }
   showAlbum(view==='home');
   menuEl.dataset.view=view;
   state.writing = (view==='write'||(view==='intent'&&['price','other'].includes(state.intent))) ? 'lead' : (view==='reqStep' ? 'req' : (view==='own' ? 'vol' : (view==='zhdSt' ? 'zhdSt' : (view==='orderInn' ? 'ordInn' : (view==='orderContact' ? 'ordContact' : ((view==='invInn'||view==='invReq') ? 'invInn' : (view==='invContact' ? 'invContact' : (view==='invPrice' ? 'invPrice' : (view==='invOwn' ? 'invOwn' : false)))))))));
@@ -292,7 +330,7 @@ function openLong(){ ovMode='long'; document.getElementById('ovT').textContent='
 function closeOv(){ document.getElementById('ov').classList.remove('on'); ovMode=null; }
 const CARDS=['DGKS','benzin','diesel','nb'], CARD_T={DGKS:'ДГКС',benzin:'Бензины К4',diesel:'ДТ ЕВРО',nb:'Нефтебазы и пункты отгрузки'}; let ovMode=null, ovIdx=0;
 function openCard(i){ ovMode='cards'; ovIdx=(i+CARDS.length)%CARDS.length; const k=CARDS[ovIdx]; document.getElementById('ovT').textContent=CARD_T[k]+' · '+(ovIdx+1)+' из '+CARDS.length; document.getElementById('ovImg').src=IMG[k]; document.getElementById('ovTail').style.display='none'; document.getElementById('ov').classList.add('on'); document.getElementById('ovPrev').style.visibility=document.getElementById('ovNext').style.visibility='visible'; logEv('просмотр карточки', k); }
-function ovStep(d){ if(ovMode==='cards') openCard(ovIdx+d); }
+function ovStep(d){ if(ovMode!=='cards') return; const im=document.getElementById('ovImg'); im.classList.remove('sl','sr'); void im.offsetWidth; im.classList.add(d>0?'sl':'sr'); openCard(ovIdx+d); }
 document.addEventListener('click', e=>{ const tr=e.target.closest('.pl tr[data-i]'); if(!tr) return; action('item', tr.dataset.i, 'строка прайса'); });
 document.getElementById('ovPrev').addEventListener('click', ()=>ovStep(-1)); document.getElementById('ovNext').addEventListener('click', ()=>ovStep(1));
 document.addEventListener('keydown', e=>{ if(!document.getElementById('ov').classList.contains('on')) return; if(e.key==='ArrowLeft') ovStep(-1); else if(e.key==='ArrowRight') ovStep(1); else if(e.key==='Escape') closeOv(); });
@@ -343,7 +381,7 @@ function action(a, v, label){
   else if(a==='zhdNo'){ add('Без подъездного пути и эстакады ЖД-цистерну не выгрузить. Предлагаю автоцистернами — самовывоз с завода круглосуточно.'+kb([[{t:'🧮 Рассчитать стоимость',a:'calc',p:1}],[{t:'💬 Написать менеджеру',a:'write'},{t:'Главная',a:'home',nav:1}]])); logEv('ЖД: нет эстакады', state.zhd.prod); }
   else if(a==='zhdSend'){ state.zhd.ready=v; render('zhdDone'); logEv('ЖД-запрос', state.zhd.prod+' · '+state.zhd.n+' цист. · '+state.zhd.st);
     bossPush('<div class="from">ЖД-запрос · @client_test · '+now()+'</div><b>'+state.zhd.prod+'</b> · '+state.zhd.n+' цистерн · ст. назначения: <b>'+esc(state.zhd.st)+'</b> · '+v+'<div style="margin-top:6px;font-size:12px;color:var(--muted)">Нужно: ЖД-тариф до станции (калькулятор РЖД / экспедитор), ставка вагона, план отгрузки завода → ответ клиенту reply</div>'); }
-  else if(a==='tog'){ state.subs.has(v)?state.subs.delete(v):state.subs.add(v); render('sub',false); }
+  else if(a==='tog'){ state.subs.has(v)?state.subs.delete(v):state.subs.add(v); window._noAnim=true; render('sub',false); }
   else if(a==='subok'){ if(!state.subs.size){ add('Ничего не отмечено — подписка не оформлена.'+kb([[{t:'◀ Назад к выбору',a:'sub',nav:1},{t:'Главная',a:'home',nav:1}]])); return; }
     render('subDone'); api('sub', {list:[...state.subs]}); logEv('подписка', [...state.subs].join(', ')); }
   
@@ -354,7 +392,7 @@ chat.addEventListener('click', e=>{
   if(z){ openCard(CARDS.indexOf(z.dataset.z)); return; }
   if(!b) return;
   const m=b.closest('.msg'); if(m && m!==menuEl && m.dataset.view){ return; }
-  action(b.dataset.a, b.dataset.v, b.textContent);
+  if(b.classList.contains('p')) hap('light'); action(b.dataset.a, b.dataset.v, b.textContent);
 });
 document.getElementById('ovTail').addEventListener('click', e=>{ const b=e.target.closest('button[data-a]'); if(!b) return; closeOv(); logEv('ссылка в конце страницы', b.textContent); if(b.dataset.a==='home'){ stack=[]; render('home',false); } else action(b.dataset.a,'',b.textContent+' (со страницы)'); });
 document.getElementById('ovClose').onclick=closeOv;
@@ -413,16 +451,18 @@ window.OFFER=null;
 (function(){ try{ const m=QUOTED.match(/(\d{2})\.(\d{2})\.(\d{4})/); if(!m) return; const b=new Date(+m[3],+m[2]-1,+m[1]); const t=new Date(); t.setHours(0,0,0,0); if((t-b)/86400000>=1){ window.FRESH={line:'На сегодня подтвержу при заявке.', calc:'Цена на день отгрузки может отличаться — подтвержу при заявке.'}; } }catch(e){} })();
 function offerRow(){ const o=window.OFFER; if(!o) return ''; const where=[o.res,o.basis].filter(Boolean).join(', ');
   return '<tr class="offer" data-i="'+o.idx+'"><td><b>'+esc(o.name)+'</b> <span style="color:var(--muted)">'+esc(where)+'</span><br><span class="otag">'+esc(o.tag)+'</span>'+(o.note?' <span style="color:var(--muted)">· '+esc(o.note)+'</span>':'')+'</td><td>'+fp(o.price)+' ₽/кг</td></tr>'; }
-api('open', {}).then(j=>{ window.OPEN_DONE=1; if(menuEl && menuEl.dataset.view==='home') render('home', false); try{ if(j&&j.last&&j.last.inn){ window.LAST={inn:j.last.inn, org:j.last.org||'', contact:j.last.contact||''}; } }catch(e){} try{ if(j&&j.fresh){ window.FRESH={line:j.fresh.line||'', calc:j.fresh.calc||''}; if(window.FRESH.line) logEv('свежесть', window.FRESH.line); if(menuEl && menuEl.dataset.view==='home') render('home', false); } }catch(e){} try{ if(!j||!j.offer) return; const o=j.offer; o.idx=ITEMS.length; ITEMS.push({cat:'', name:o.name, res:o.res||'', basis:o.basis||'', kg:o.price, dens:o.dens||0.83, dens_guess:!o.dens, group:'', point:'', offer:o.id}); window.OFFER=o; logEv('предложение показано', o.id); if(menuEl && menuEl.dataset.view==='home') render('home', false); }catch(e){} });
+api('open', {}).then(j=>{ window.OPEN_DONE=1; if(menuEl && menuEl.dataset.view==='home'){ window._noAnim=true; render('home', false); } try{ if(j&&j.last&&j.last.inn){ window.LAST={inn:j.last.inn, org:j.last.org||'', contact:j.last.contact||''}; } }catch(e){} try{ if(j&&j.fresh){ window.FRESH={line:j.fresh.line||'', calc:j.fresh.calc||''}; if(window.FRESH.line) logEv('свежесть', window.FRESH.line); if(menuEl && menuEl.dataset.view==='home') render('home', false); } }catch(e){} try{ if(!j||!j.offer) return; const o=j.offer; o.idx=ITEMS.length; ITEMS.push({cat:'', name:o.name, res:o.res||'', basis:o.basis||'', kg:o.price, dens:o.dens||0.83, dens_guess:!o.dens, group:'', point:'', offer:o.id}); window.OFFER=o; logEv('предложение показано', o.id); if(menuEl && menuEl.dataset.view==='home') render('home', false); }catch(e){} });
 chat.addEventListener('click', e=>{ const tr=e.target.closest('tr.offer'); if(!tr) return; logEv('предложение → расчёт', window.OFFER?window.OFFER.id:''); action('item', tr.dataset.i, 'предложение'); });
 
-function err(t){ const v=menuEl&&menuEl.dataset.view; const i=document.getElementById('inp'); if(!v){ add(t+kb([[{t:'Главная',a:'home',nav:1}]])); return; } state.err=t; render(v,false); state.err=null; i.value=window._typed||''; setTimeout(()=>i.focus(),50); }
+document.querySelectorAll('.top .av,.top .av img,.top .t,.top .s').forEach(el=>el.addEventListener('animationend',()=>{ el.style.animation='none'; },{once:true}));
+function hap(k){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; if(k==='light') h.impactOccurred('light'); else h.notificationOccurred(k); }catch(e){} }
+function err(t){ const v=menuEl&&menuEl.dataset.view; const i=document.getElementById('inp'); if(!v){ add(t+kb([[{t:'Главная',a:'home',nav:1}]])); return; } state.err=t; window._noAnim=true; render(v,false); state.err=null; i.value=window._typed||''; hap('error'); const w=document.querySelector('.input'); if(w){ w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake'); } setTimeout(()=>i.focus(),50); }
 function setInput(){ const i=document.getElementById('inp'); const w=state.writing; const k=state.reqK||0;
   const M={lead:['Напишите Данилу…','text'], invInn:['ИНН — 10 или 12 цифр','numeric'], ordInn:['ИНН — 10 или 12 цифр','numeric'], invContact:['Имя и телефон','text'], ordContact:['Имя и телефон','text'], vol:['Объём: 25000 или 20 т','decimal'], invOwn:['Объём: 25000 или 20 т','decimal'], invPrice:['Цена, ₽/кг: 95 или 93,5','decimal'], zhdSt:['Станция и дорога','text'], req:[['ИНН — 10 или 12 цифр','numeric'],['Электронная почта','email'],['Имя и телефон','text']][k]};
   const m=M[w]||['Написать Данилу…','text']; i.placeholder=m[0]; i.setAttribute('inputmode', m[1]); }
-function guard(doneView, pr, onOk){ const b=menuEl&&menuEl.querySelector('.kb button.p'); const btns=menuEl?[...menuEl.querySelectorAll('.kb button')]:[]; const t0=b?b.textContent:''; btns.forEach(x=>x.disabled=true); if(b) b.textContent='Отправляю…';
-  let done=false; const fail=()=>{ if(done) return; done=true; btns.forEach(x=>x.disabled=false); if(b) b.textContent=t0; window._typed=''; err('Не удалось отправить — проверьте связь и нажмите ещё раз.'); logEv('ошибка отправки', doneView); };
-  const ok=j=>{ if(done) return; if(j==null){ fail(); return; } done=true; render(doneView); if(onOk) onOk(); };
+function guard(doneView, pr, onOk){ const b=menuEl&&menuEl.querySelector('.kb button.p'); const btns=menuEl?[...menuEl.querySelectorAll('.kb button')]:[]; const t0=b?b.innerHTML:''; btns.forEach(x=>x.disabled=true); if(b){ b.innerHTML='<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>'+t0; b.classList.add('busy'); b.setAttribute('aria-busy','true'); }
+  let done=false; const fail=()=>{ if(done) return; done=true; btns.forEach(x=>x.disabled=false); if(b){ b.innerHTML=t0; b.classList.remove('busy'); b.removeAttribute('aria-busy'); } window._typed=''; err('Не удалось отправить — проверьте связь и нажмите ещё раз.'); logEv('ошибка отправки', doneView); };
+  const ok=j=>{ if(done) return; if(j==null){ fail(); return; } done=true; hap('success'); if(b){ b.innerHTML='<svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" pathLength="1"/></svg>'+t0; } setTimeout(()=>{ render(doneView); if(onOk) onOk(); }, 450); };
   (pr&&pr.then?pr:Promise.resolve(null)).then(ok, fail); setTimeout(fail, 9000); }
 (function(){ if(!tg||!tg.BackButton) return; const ov=document.getElementById('ov');
   function upd(){ const home=menuEl&&menuEl.dataset.view==='home'&&!stack.length; try{ (ov.classList.contains('on')||!home)?tg.BackButton.show():tg.BackButton.hide(); }catch(e){} }
